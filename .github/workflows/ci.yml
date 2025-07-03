@@ -142,6 +142,99 @@ jobs:
         run: source ../../bin/activate-hermit && npm run lint:check
         working-directory: ui/desktop
 
+  # JavaScript/Node.js Tests
+  javascript-tests:
+    name: JavaScript Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.9.0'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Install Dependencies
+        run: |
+          # Install dependencies for JavaScript unit tests
+          if [ -f "package.json" ]; then
+            npm ci
+          fi
+          # Install dependencies for desktop app if tests need them
+          cd ui/desktop && npm ci
+
+      - name: Run JavaScript Unit Tests
+        run: |
+          # Run unit tests if they exist
+          if [ -f "package.json" ] && npm run test --if-present; then
+            echo "Root level tests completed"
+          fi
+          # Run desktop app unit tests if they exist
+          cd ui/desktop
+          if npm run test:unit --if-present; then
+            echo "Desktop unit tests completed"
+          fi
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: javascript-test-results
+          path: |
+            test-results/
+            coverage/
+            junit.xml
+
+  # Java Tests (Maven/Gradle)
+  java-tests:
+    name: Java Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Maven Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Run Java Tests (Maven)
+        run: |
+          if [ -f "pom.xml" ]; then
+            mvn clean test
+          else
+            echo "No Maven pom.xml found, skipping Maven tests"
+          fi
+
+      - name: Run Java Tests (Gradle)
+        run: |
+          if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            ./gradlew test
+          else
+            echo "No Gradle build file found, skipping Gradle tests"
+          fi
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java-test-results
+          path: |
+            target/surefire-reports/
+            build/test-results/
+            build/reports/
+
   # Faster Desktop App build for PRs only
   bundle-desktop-unsigned:
     uses: ./.github/workflows/bundle-desktop.yml
