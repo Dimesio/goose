@@ -142,6 +142,100 @@ jobs:
         run: source ../../bin/activate-hermit && npm run lint:check
         working-directory: ui/desktop
 
+  # JavaScript/Node.js testing
+  javascript-tests:
+    name: JavaScript/Node.js Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # pin@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run JavaScript Tests
+        run: npm test
+
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # pin@v4
+        if: always()
+        with:
+          name: javascript-test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  # Java/Maven testing
+  java-tests:
+    name: Java Tests (Maven)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # pin@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@2f8e54208210a422b2efd51efaa6bd6d7ca8920f # pin@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Run Maven Tests
+        run: mvn test
+
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # pin@v4
+        if: always()
+        with:
+          name: java-test-results
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
+          retention-days: 30
+
+  # Java/Gradle testing
+  java-gradle-tests:
+    name: Java Tests (Gradle)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93 # pin@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@d156388eb19639ec20ade50009f3d199ce1e2808 # pin@v4
+
+      - name: Run Gradle Tests
+        run: ./gradlew test
+
+      - name: Upload Test Artifacts
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # pin@v4
+        if: always()
+        with:
+          name: java-gradle-test-results
+          path: |
+            build/reports/tests/
+            build/reports/jacoco/
+          retention-days: 30
+
   # Faster Desktop App build for PRs only
   bundle-desktop-unsigned:
     uses: ./.github/workflows/bundle-desktop.yml
