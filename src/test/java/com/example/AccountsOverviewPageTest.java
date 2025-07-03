@@ -3,78 +3,151 @@ package com.example;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Test class for AccountsOverviewPage to verify immutability and list conversion operations.
- * Demonstrates modern Java features including records, streams, and immutable collections.
+ * Tests for AccountsOverviewPage demonstrating immutability and list conversion
+ * This simulates a UI component that might be used in the goose desktop application
  */
 public class AccountsOverviewPageTest {
 
-    // Mock Account record for testing
-    public record Account(
-        String id,
-        String name,
-        String type,
-        double balance,
-        boolean isActive
-    ) {
-        // Compact constructor for validation
-        public Account {
-            Objects.requireNonNull(id, "Account ID cannot be null");
-            Objects.requireNonNull(name, "Account name cannot be null");
-            Objects.requireNonNull(type, "Account type cannot be null");
-            if (balance < 0) {
-                throw new IllegalArgumentException("Account balance cannot be negative");
-            }
-        }
+    private AccountsOverviewPage page;
+    private List<Account> testAccounts;
+
+    @BeforeEach
+    void setUp() {
+        testAccounts = List.of(
+            new Account("1", "Primary Account", 1000.0, AccountType.CHECKING),
+            new Account("2", "Savings Account", 5000.0, AccountType.SAVINGS),
+            new Account("3", "Investment Account", 10000.0, AccountType.INVESTMENT)
+        );
+        page = new AccountsOverviewPage(testAccounts);
     }
 
-    // Mock AccountsOverviewPage class
-    public static class AccountsOverviewPage {
-        private final List<Account> accounts;
-        private final String title;
-        private final boolean isReadOnly;
+    @Test
+    @DisplayName("Should maintain immutability of account list")
+    void shouldMaintainImmutabilityOfAccountList() {
+        // Given
+        List<Account> originalAccounts = page.getAccounts();
+        int originalSize = originalAccounts.size();
 
-        public AccountsOverviewPage(List<Account> accounts, String title, boolean isReadOnly) {
-            // Ensure immutability by creating defensive copy
-            this.accounts = accounts != null ? List.copyOf(accounts) : List.of();
-            this.title = title;
-            this.isReadOnly = isReadOnly;
+        // When - attempt to modify the returned list
+        assertThatThrownBy(() -> originalAccounts.add(new Account("4", "New Account", 100.0, AccountType.CHECKING)))
+            .isInstanceOf(UnsupportedOperationException.class);
+
+        // Then - original list should be unchanged
+        assertThat(page.getAccounts()).hasSize(originalSize);
+        assertThat(page.getAccounts()).isEqualTo(originalAccounts);
+    }
+
+    @Test
+    @DisplayName("Should convert accounts to immutable list using modern Java")
+    void shouldConvertAccountsToImmutableList() {
+        // Given
+        List<Account> mutableAccounts = new ArrayList<>(testAccounts);
+
+        // When - create page with mutable list
+        AccountsOverviewPage newPage = new AccountsOverviewPage(mutableAccounts);
+
+        // Then - internal list should be immutable
+        List<Account> pageAccounts = newPage.getAccounts();
+        assertThatThrownBy(() -> pageAccounts.clear())
+            .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("Should filter accounts by type using streams")
+    void shouldFilterAccountsByTypeUsingStreams() {
+        // When
+        List<Account> checkingAccounts = page.getAccountsByType(AccountType.CHECKING);
+        List<Account> savingsAccounts = page.getAccountsByType(AccountType.SAVINGS);
+
+        // Then
+        assertThat(checkingAccounts)
+            .hasSize(1)
+            .extracting(Account::name)
+            .containsExactly("Primary Account");
+
+        assertThat(savingsAccounts)
+            .hasSize(1)
+            .extracting(Account::name)
+            .containsExactly("Savings Account");
+    }
+
+    @Test
+    @DisplayName("Should calculate total balance using streams")
+    void shouldCalculateTotalBalanceUsingStreams() {
+        // When
+        double totalBalance = page.getTotalBalance();
+
+        // Then
+        assertThat(totalBalance).isEqualTo(16000.0);
+    }
+
+    @Test
+    @DisplayName("Should convert to list using modern toList() method")
+    void shouldConvertToListUsingModernToListMethod() {
+        // When - use modern Java 16+ toList() instead of collect(Collectors.toList())
+        List<String> accountNames = page.getAccounts()
+            .stream()
+            .map(Account::name)
+            .toList(); // Modern Java approach
+
+        // Then
+        assertThat(accountNames)
+            .containsExactly("Primary Account", "Savings Account", "Investment Account");
+
+        // Verify immutability of result
+        assertThatThrownBy(() -> accountNames.add("New Account"))
+            .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("Should handle empty account list gracefully")
+    void shouldHandleEmptyAccountListGracefully() {
+        // Given
+        AccountsOverviewPage emptyPage = new AccountsOverviewPage(List.of());
+
+        // Then
+        assertThat(emptyPage.getAccounts()).isEmpty();
+        assertThat(emptyPage.getTotalBalance()).isZero();
+        assertThat(emptyPage.getAccountsByType(AccountType.CHECKING)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should create defensive copy in constructor")
+    void shouldCreateDefensiveCopyInConstructor() {
+        // Given
+        List<Account> mutableList = new ArrayList<>(testAccounts);
+        AccountsOverviewPage newPage = new AccountsOverviewPage(mutableList);
+
+        // When - modify original list
+        mutableList.clear();
+
+        // Then - page should still have original accounts
+        assertThat(newPage.getAccounts()).hasSize(3);
+        assertThat(newPage.getAccounts()).isNotEmpty();
+    }
+
+    // Supporting classes for testing
+    public static final class AccountsOverviewPage {
+        private final List<Account> accounts;
+
+        public AccountsOverviewPage(List<Account> accounts) {
+            // Create defensive copy and make immutable
+            this.accounts = List.copyOf(accounts);
         }
 
         public List<Account> getAccounts() {
-            return accounts; // Already immutable from List.copyOf()
+            return accounts; // Already immutable
         }
 
-        public List<Account> getActiveAccounts() {
+        public List<Account> getAccountsByType(AccountType type) {
             return accounts.stream()
-                .filter(Account::isActive)
-                .toList(); // Modern Java 16+ collection method
-        }
-
-        public List<String> getAccountNames() {
-            return accounts.stream()
-                .map(Account::name)
-                .collect(Collectors.toUnmodifiableList());
-        }
-
-        public Map<String, List<Account>> getAccountsByType() {
-            return accounts.stream()
-                .collect(Collectors.groupingBy(
-                    Account::type,
-                    Collectors.toUnmodifiableList()
-                ));
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public boolean isReadOnly() {
-            return isReadOnly;
+                .filter(account -> account.type() == type)
+                .toList(); // Modern Java 16+ approach
         }
 
         public double getTotalBalance() {
@@ -84,203 +157,16 @@ public class AccountsOverviewPageTest {
         }
     }
 
-    private List<Account> testAccounts;
-    private AccountsOverviewPage overviewPage;
+    public record Account(
+        String id,
+        String name,
+        double balance,
+        AccountType type
+    ) {}
 
-    @BeforeEach
-    void setUp() {
-        testAccounts = List.of(
-            new Account("1", "Checking Account", "CHECKING", 1500.50, true),
-            new Account("2", "Savings Account", "SAVINGS", 5000.00, true),
-            new Account("3", "Investment Account", "INVESTMENT", 10000.75, false),
-            new Account("4", "Credit Card", "CREDIT", 2500.00, true),
-            new Account("5", "Loan Account", "LOAN", 15000.00, false)
-        );
-
-        overviewPage = new AccountsOverviewPage(testAccounts, "Account Overview", false);
-    }
-
-    @Test
-    @DisplayName("Should create immutable accounts list")
-    void testAccountsListImmutability() {
-        List<Account> accounts = overviewPage.getAccounts();
-        
-        // Verify the list is immutable
-        assertThrows(UnsupportedOperationException.class, () -> {
-            accounts.add(new Account("6", "New Account", "CHECKING", 100.0, true));
-        });
-
-        assertThrows(UnsupportedOperationException.class, () -> {
-            accounts.remove(0);
-        });
-
-        assertThrows(UnsupportedOperationException.class, () -> {
-            accounts.clear();
-        });
-    }
-
-    @Test
-    @DisplayName("Should maintain original list integrity after creating page")
-    void testDefensiveCopyBehavior() {
-        List<Account> originalList = new ArrayList<>(testAccounts);
-        AccountsOverviewPage page = new AccountsOverviewPage(originalList, "Test", false);
-        
-        // Modify original list
-        originalList.add(new Account("99", "Added Account", "CHECKING", 500.0, true));
-        originalList.remove(0);
-        
-        // Page should maintain original state
-        assertEquals(5, page.getAccounts().size());
-        assertEquals("Checking Account", page.getAccounts().get(0).name());
-    }
-
-    @Test
-    @DisplayName("Should convert to list using modern Java collection methods")
-    void testModernListConversion() {
-        List<Account> activeAccounts = overviewPage.getActiveAccounts();
-        
-        // Verify using toList() (Java 16+)
-        assertEquals(3, activeAccounts.size());
-        assertTrue(activeAccounts.stream().allMatch(Account::isActive));
-        
-        // Verify result is immutable
-        assertThrows(UnsupportedOperationException.class, () -> {
-            activeAccounts.add(new Account("100", "Test", "CHECKING", 100.0, true));
-        });
-    }
-
-    @Test
-    @DisplayName("Should create unmodifiable list of account names")
-    void testUnmodifiableListCollection() {
-        List<String> accountNames = overviewPage.getAccountNames();
-        
-        List<String> expectedNames = List.of(
-            "Checking Account", "Savings Account", "Investment Account", 
-            "Credit Card", "Loan Account"
-        );
-        
-        assertEquals(expectedNames, accountNames);
-        
-        // Verify immutability
-        assertThrows(UnsupportedOperationException.class, () -> {
-            accountNames.add("New Account Name");
-        });
-    }
-
-    @Test
-    @DisplayName("Should group accounts by type with immutable collections")
-    void testGroupingToUnmodifiableCollections() {
-        Map<String, List<Account>> accountsByType = overviewPage.getAccountsByType();
-        
-        // Verify grouping
-        assertEquals(5, accountsByType.size());
-        assertTrue(accountsByType.containsKey("CHECKING"));
-        assertTrue(accountsByType.containsKey("SAVINGS"));
-        assertTrue(accountsByType.containsKey("INVESTMENT"));
-        assertTrue(accountsByType.containsKey("CREDIT"));
-        assertTrue(accountsByType.containsKey("LOAN"));
-        
-        // Verify each list is immutable
-        List<Account> checkingAccounts = accountsByType.get("CHECKING");
-        assertThrows(UnsupportedOperationException.class, () -> {
-            checkingAccounts.add(new Account("101", "Test", "CHECKING", 100.0, true));
-        });
-        
-        // Verify map is immutable (this may not throw in all implementations)
-        try {
-            accountsByType.put("NEW_TYPE", List.of());
-            // If we get here, the map allows modification, which is not what we expect
-            // but some implementations may allow this, so we'll just verify the content
-            assertTrue(accountsByType.containsKey("CHECKING"));
-        } catch (UnsupportedOperationException e) {
-            // Expected behavior for truly immutable maps
-            assertTrue(true, "Map is properly immutable");
-        }
-    }
-
-    @Test
-    @DisplayName("Should handle null input gracefully")
-    void testNullInputHandling() {
-        AccountsOverviewPage emptyPage = new AccountsOverviewPage(null, "Empty Page", true);
-        
-        assertEquals(0, emptyPage.getAccounts().size());
-        assertEquals(0, emptyPage.getActiveAccounts().size());
-        assertEquals(0, emptyPage.getAccountNames().size());
-        assertEquals(0, emptyPage.getAccountsByType().size());
-        assertEquals(0.0, emptyPage.getTotalBalance());
-    }
-
-    @Test
-    @DisplayName("Should validate account record constraints")
-    void testAccountRecordValidation() {
-        // Test null ID
-        assertThrows(NullPointerException.class, () -> {
-            new Account(null, "Test Account", "CHECKING", 100.0, true);
-        });
-
-        // Test null name
-        assertThrows(NullPointerException.class, () -> {
-            new Account("1", null, "CHECKING", 100.0, true);
-        });
-
-        // Test null type
-        assertThrows(NullPointerException.class, () -> {
-            new Account("1", "Test Account", null, 100.0, true);
-        });
-
-        // Test negative balance
-        assertThrows(IllegalArgumentException.class, () -> {
-            new Account("1", "Test Account", "CHECKING", -100.0, true);
-        });
-    }
-
-    @Test
-    @DisplayName("Should calculate total balance correctly")
-    void testTotalBalanceCalculation() {
-        double expectedTotal = 1500.50 + 5000.00 + 10000.75 + 2500.00 + 15000.00;
-        assertEquals(expectedTotal, overviewPage.getTotalBalance(), 0.01);
-    }
-
-    @Test
-    @DisplayName("Should preserve page immutability properties")
-    void testPageImmutability() {
-        assertEquals("Account Overview", overviewPage.getTitle());
-        assertFalse(overviewPage.isReadOnly());
-        
-        // Create read-only page
-        AccountsOverviewPage readOnlyPage = new AccountsOverviewPage(
-            testAccounts, "Read-Only Overview", true
-        );
-        
-        assertTrue(readOnlyPage.isReadOnly());
-        assertEquals("Read-Only Overview", readOnlyPage.getTitle());
-    }
-
-    @Test
-    @DisplayName("Should demonstrate stream operations with immutable results")
-    void testStreamOperationsImmutability() {
-        // Filter and collect to immutable list
-        List<Account> highBalanceAccounts = overviewPage.getAccounts().stream()
-            .filter(account -> account.balance() > 2000.0)
-            .collect(Collectors.toUnmodifiableList());
-        
-        assertEquals(4, highBalanceAccounts.size());
-        
-        // Verify immutability
-        assertThrows(UnsupportedOperationException.class, () -> {
-            highBalanceAccounts.add(new Account("102", "Test", "CHECKING", 3000.0, true));
-        });
-        
-        // Transform to immutable set
-        Set<String> accountTypes = overviewPage.getAccounts().stream()
-            .map(Account::type)
-            .collect(Collectors.toUnmodifiableSet());
-        
-        assertEquals(5, accountTypes.size());
-        
-        // Verify set immutability
-        assertThrows(UnsupportedOperationException.class, () -> {
-            accountTypes.add("NEW_TYPE");
-        });
+    public enum AccountType {
+        CHECKING,
+        SAVINGS,
+        INVESTMENT
     }
 }

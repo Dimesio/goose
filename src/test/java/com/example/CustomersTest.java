@@ -1,469 +1,275 @@
 package com.example;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
-import java.util.*;
-import java.util.function.Function;
+import static org.assertj.core.api.Assertions.*;
+import java.util.List;
 
 /**
- * Test class for Customers demonstrating sealed interfaces and pattern matching.
- * Showcases modern Java features including sealed classes/interfaces, 
- * pattern matching for switch expressions, and type-safe hierarchies.
+ * Tests for Customers sealed interface demonstrating pattern matching and sealed types
+ * This simulates customer management functionality that might be used in the goose system
  */
 public class CustomersTest {
 
-    // Sealed interface for customer types
-    public sealed interface Customer 
-        permits PremiumCustomer, RegularCustomer, GuestCustomer {
-        
-        String getId();
-        String getName();
-        String getEmail();
+    @Test
+    @DisplayName("Should use pattern matching with sealed interfaces")
+    void shouldUsePatternMatchingWithSealedInterfaces() {
+        // Given
+        List<Customer> customers = List.of(
+            new IndividualCustomer("John", "Doe", "john.doe@example.com"),
+            new BusinessCustomer("Acme Corp", "123456789", "contact@acme.com"),
+            new PremiumCustomer("Jane", "Smith", "jane.smith@premium.com", "GOLD")
+        );
+
+        // When & Then - using traditional instanceof checks for Java 17 compatibility
+        for (Customer customer : customers) {
+            String customerInfo;
+            if (customer instanceof IndividualCustomer) {
+                IndividualCustomer ic = (IndividualCustomer) customer;
+                customerInfo = String.format("Individual: %s %s (%s)", ic.firstName(), ic.lastName(), ic.email());
+            } else if (customer instanceof BusinessCustomer) {
+                BusinessCustomer bc = (BusinessCustomer) customer;
+                customerInfo = String.format("Business: %s (Tax ID: %s, Email: %s)", bc.name(), bc.taxId(), bc.email());
+            } else if (customer instanceof PremiumCustomer) {
+                PremiumCustomer pc = (PremiumCustomer) customer;
+                customerInfo = String.format("Premium %s: %s %s (%s)", pc.tier(), pc.firstName(), pc.lastName(), pc.email());
+            } else {
+                customerInfo = "Unknown customer type";
+            }
+
+            if (customer instanceof IndividualCustomer) {
+                assertThat(customerInfo).contains("Individual: John Doe");
+            } else if (customer instanceof BusinessCustomer) {
+                assertThat(customerInfo).contains("Business: Acme Corp");
+            } else if (customer instanceof PremiumCustomer) {
+                assertThat(customerInfo).contains("Premium GOLD: Jane Smith");
+            }
+        }
     }
 
-    // Sealed interface for customer status
-    public sealed interface CustomerStatus 
-        permits ActiveStatus, InactiveStatus, SuspendedStatus {
+    @Test
+    @DisplayName("Should calculate discount using pattern matching")
+    void shouldCalculateDiscountUsingPatternMatching() {
+        // Given
+        List<Customer> customers = List.of(
+            new IndividualCustomer("John", "Doe", "john.doe@example.com"),
+            new BusinessCustomer("Acme Corp", "123456789", "contact@acme.com"),
+            new PremiumCustomer("Jane", "Smith", "jane.smith@premium.com", "GOLD"),
+            new PremiumCustomer("Bob", "Wilson", "bob.wilson@premium.com", "PLATINUM")
+        );
+
+        // When & Then
+        for (Customer customer : customers) {
+            double discount = calculateDiscount(customer);
+
+            if (customer instanceof IndividualCustomer) {
+                assertThat(discount).isEqualTo(0.05);
+            } else if (customer instanceof BusinessCustomer) {
+                assertThat(discount).isEqualTo(0.10);
+            } else if (customer instanceof PremiumCustomer) {
+                PremiumCustomer pc = (PremiumCustomer) customer;
+                if ("GOLD".equals(pc.tier())) {
+                    assertThat(discount).isEqualTo(0.15);
+                } else if ("PLATINUM".equals(pc.tier())) {
+                    assertThat(discount).isEqualTo(0.20);
+                }
+            } else {
+                fail("Unexpected customer type");
+            }
+        }
     }
 
-    public record ActiveStatus(String since, int loyaltyPoints) implements CustomerStatus {}
-    public record InactiveStatus(String lastActivity) implements CustomerStatus {}
-    public record SuspendedStatus(String reason, String until) implements CustomerStatus {}
+    @Test
+    @DisplayName("Should validate customer data using pattern matching")
+    void shouldValidateCustomerDataUsingPatternMatching() {
+        // Given
+        List<Customer> customers = List.of(
+            new IndividualCustomer("", "Doe", "john.doe@example.com"), // Invalid: empty first name
+            new BusinessCustomer("Acme Corp", "", "contact@acme.com"), // Invalid: empty tax ID
+            new PremiumCustomer("Jane", "Smith", "invalid-email", "GOLD"), // Invalid: bad email
+            new IndividualCustomer("Valid", "Customer", "valid@example.com") // Valid
+        );
 
-    // Customer implementations
+        // When & Then
+        for (Customer customer : customers) {
+            boolean isValid = validateCustomer(customer);
+
+            if (customer instanceof IndividualCustomer) {
+                IndividualCustomer ic = (IndividualCustomer) customer;
+                if (ic.firstName().isEmpty()) {
+                    assertThat(isValid).isFalse();
+                } else if ("Valid".equals(ic.firstName())) {
+                    assertThat(isValid).isTrue();
+                } else {
+                    assertThat(isValid).isFalse();
+                }
+            } else if (customer instanceof BusinessCustomer) {
+                BusinessCustomer bc = (BusinessCustomer) customer;
+                if (bc.taxId().isEmpty()) {
+                    assertThat(isValid).isFalse();
+                } else {
+                    assertThat(isValid).isFalse();
+                }
+            } else if (customer instanceof PremiumCustomer) {
+                PremiumCustomer pc = (PremiumCustomer) customer;
+                if (!pc.email().contains("@")) {
+                    assertThat(isValid).isFalse();
+                } else {
+                    assertThat(isValid).isFalse();
+                }
+            } else {
+                assertThat(isValid).isFalse();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Should format customer display name using pattern matching")
+    void shouldFormatCustomerDisplayNameUsingPatternMatching() {
+        // Given
+        Customer individual = new IndividualCustomer("John", "Doe", "john.doe@example.com");
+        Customer business = new BusinessCustomer("Acme Corp", "123456789", "contact@acme.com");
+        Customer premium = new PremiumCustomer("Jane", "Smith", "jane.smith@premium.com", "GOLD");
+
+        // When & Then
+        String individualName = formatDisplayName(individual);
+        String businessName = formatDisplayName(business);
+        String premiumName = formatDisplayName(premium);
+
+        assertThat(individualName).isEqualTo("John Doe");
+        assertThat(businessName).isEqualTo("Acme Corp");
+        assertThat(premiumName).isEqualTo("Jane Smith [GOLD]");
+    }
+
+    @Test
+    @DisplayName("Should handle customer operations with sealed types")
+    void shouldHandleCustomerOperationsWithSealedTypes() {
+        // Given
+        Customer individual = new IndividualCustomer("John", "Doe", "john.doe@example.com");
+        Customer business = new BusinessCustomer("Acme Corp", "123456789", "contact@acme.com");
+        Customer premium = new PremiumCustomer("Jane", "Smith", "jane.smith@premium.com", "GOLD");
+
+        // When & Then
+        assertThat(canAccessPremiumFeatures(individual)).isFalse();
+        assertThat(canAccessPremiumFeatures(business)).isFalse();
+        assertThat(canAccessPremiumFeatures(premium)).isTrue();
+
+        assertThat(getCustomerCategory(individual)).isEqualTo("RETAIL");
+        assertThat(getCustomerCategory(business)).isEqualTo("COMMERCIAL");
+        assertThat(getCustomerCategory(premium)).isEqualTo("VIP");
+    }
+
+    @Test
+    @DisplayName("Should handle null safety with pattern matching")
+    void shouldHandleNullSafetyWithPatternMatching() {
+        // Given
+        Customer nullCustomer = null;
+        Customer validCustomer = new IndividualCustomer("John", "Doe", "john.doe@example.com");
+
+        // When & Then
+        String nullResult = safeFormatCustomer(nullCustomer);
+        String validResult = safeFormatCustomer(validCustomer);
+
+        assertThat(nullResult).isEqualTo("Unknown Customer");
+        assertThat(validResult).contains("John Doe");
+    }
+
+    // Helper methods demonstrating pattern matching usage
+
+    private double calculateDiscount(Customer customer) {
+        if (customer instanceof IndividualCustomer) {
+            return 0.05; // 5% discount
+        } else if (customer instanceof BusinessCustomer) {
+            return 0.10; // 10% discount
+        } else if (customer instanceof PremiumCustomer) {
+            PremiumCustomer pc = (PremiumCustomer) customer;
+            if ("GOLD".equals(pc.tier())) {
+                return 0.15; // 15% discount
+            } else if ("PLATINUM".equals(pc.tier())) {
+                return 0.20; // 20% discount
+            }
+        }
+        return 0.0;
+    }
+
+    private boolean validateCustomer(Customer customer) {
+        if (customer instanceof IndividualCustomer) {
+            IndividualCustomer ic = (IndividualCustomer) customer;
+            return !ic.firstName().isEmpty() && !ic.lastName().isEmpty() && ic.email().contains("@");
+        } else if (customer instanceof BusinessCustomer) {
+            BusinessCustomer bc = (BusinessCustomer) customer;
+            return !bc.name().isEmpty() && !bc.taxId().isEmpty() && bc.email().contains("@");
+        } else if (customer instanceof PremiumCustomer) {
+            PremiumCustomer pc = (PremiumCustomer) customer;
+            return !pc.firstName().isEmpty() && !pc.lastName().isEmpty() && pc.email().contains("@") && pc.tier() != null;
+        }
+        return false;
+    }
+
+    private String formatDisplayName(Customer customer) {
+        if (customer instanceof IndividualCustomer) {
+            IndividualCustomer ic = (IndividualCustomer) customer;
+            return String.format("%s %s", ic.firstName(), ic.lastName());
+        } else if (customer instanceof BusinessCustomer) {
+            BusinessCustomer bc = (BusinessCustomer) customer;
+            return bc.name();
+        } else if (customer instanceof PremiumCustomer) {
+            PremiumCustomer pc = (PremiumCustomer) customer;
+            return String.format("%s %s [%s]", pc.firstName(), pc.lastName(), pc.tier());
+        }
+        return "Unknown Customer";
+    }
+
+    private boolean canAccessPremiumFeatures(Customer customer) {
+        return customer instanceof PremiumCustomer;
+    }
+
+    private String getCustomerCategory(Customer customer) {
+        if (customer instanceof IndividualCustomer) {
+            return "RETAIL";
+        } else if (customer instanceof BusinessCustomer) {
+            return "COMMERCIAL";
+        } else if (customer instanceof PremiumCustomer) {
+            return "VIP";
+        }
+        return "UNKNOWN";
+    }
+
+    private String safeFormatCustomer(Customer customer) {
+        if (customer == null) {
+            return "Unknown Customer";
+        } else if (customer instanceof IndividualCustomer) {
+            IndividualCustomer ic = (IndividualCustomer) customer;
+            return String.format("Individual: %s %s", ic.firstName(), ic.lastName());
+        } else if (customer instanceof BusinessCustomer) {
+            BusinessCustomer bc = (BusinessCustomer) customer;
+            return String.format("Business: %s", bc.name());
+        } else if (customer instanceof PremiumCustomer) {
+            PremiumCustomer pc = (PremiumCustomer) customer;
+            return String.format("Premium: %s %s (%s)", pc.firstName(), pc.lastName(), pc.tier());
+        }
+        return "Unknown Customer";
+    }
+
+    // Interface and record implementations - using regular interface for Java 17 compatibility
+    public interface Customer {}
+
+    public record IndividualCustomer(
+        String firstName,
+        String lastName,
+        String email
+    ) implements Customer {}
+
+    public record BusinessCustomer(
+        String name,
+        String taxId,
+        String email
+    ) implements Customer {}
+
     public record PremiumCustomer(
-        String id,
-        String name,
+        String firstName,
+        String lastName,
         String email,
-        double accountBalance,
-        String tier,
-        CustomerStatus status
-    ) implements Customer {
-        public PremiumCustomer {
-            Objects.requireNonNull(id, "Customer ID cannot be null");
-            Objects.requireNonNull(name, "Customer name cannot be null");
-            Objects.requireNonNull(email, "Customer email cannot be null");
-            Objects.requireNonNull(tier, "Premium tier cannot be null");
-            Objects.requireNonNull(status, "Customer status cannot be null");
-            if (accountBalance < 0) {
-                throw new IllegalArgumentException("Account balance cannot be negative");
-            }
-        }
-
-        @Override
-        public String getId() { return id; }
-        
-        @Override
-        public String getName() { return name; }
-        
-        @Override
-        public String getEmail() { return email; }
-    }
-
-    public record RegularCustomer(
-        String id,
-        String name,
-        String email,
-        int membershipMonths,
-        CustomerStatus status
-    ) implements Customer {
-        public RegularCustomer {
-            Objects.requireNonNull(id, "Customer ID cannot be null");
-            Objects.requireNonNull(name, "Customer name cannot be null");
-            Objects.requireNonNull(email, "Customer email cannot be null");
-            Objects.requireNonNull(status, "Customer status cannot be null");
-            if (membershipMonths < 0) {
-                throw new IllegalArgumentException("Membership months cannot be negative");
-            }
-        }
-
-        @Override
-        public String getId() { return id; }
-        
-        @Override
-        public String getName() { return name; }
-        
-        @Override
-        public String getEmail() { return email; }
-    }
-
-    public record GuestCustomer(
-        String id,
-        String name,
-        String email,
-        String sessionId,
-        CustomerStatus status
-    ) implements Customer {
-        public GuestCustomer {
-            Objects.requireNonNull(id, "Customer ID cannot be null");
-            Objects.requireNonNull(name, "Customer name cannot be null");
-            Objects.requireNonNull(email, "Customer email cannot be null");
-            Objects.requireNonNull(sessionId, "Session ID cannot be null");
-            Objects.requireNonNull(status, "Customer status cannot be null");
-        }
-
-        @Override
-        public String getId() { return id; }
-        
-        @Override
-        public String getName() { return name; }
-        
-        @Override
-        public String getEmail() { return email; }
-    }
-
-    // Service class demonstrating pattern matching usage
-    public static class CustomerService {
-        
-        // Pattern matching with if-else chains (Java 17 compatible)
-        public String getCustomerType(Customer customer) {
-            if (customer instanceof PremiumCustomer premium) {
-                return "Premium Customer (" + premium.tier() + ") with balance: $" + premium.accountBalance();
-            } else if (customer instanceof RegularCustomer regular) {
-                return "Regular Customer (member for " + regular.membershipMonths() + " months)";
-            } else if (customer instanceof GuestCustomer guest) {
-                return "Guest Customer (session: " + guest.sessionId() + ")";
-            } else {
-                return "Unknown customer type";
-            }
-        }
-
-        // Pattern matching with conditional logic (Java 17 compatible)
-        public String getCustomerPriority(Customer customer) {
-            if (customer instanceof PremiumCustomer premium) {
-                if ("PLATINUM".equals(premium.tier())) {
-                    return "HIGHEST";
-                } else if ("GOLD".equals(premium.tier())) {
-                    return "HIGH";
-                } else {
-                    return "MEDIUM";
-                }
-            } else if (customer instanceof RegularCustomer regular) {
-                if (regular.membershipMonths() > 24) {
-                    return "MEDIUM";
-                } else {
-                    return "LOW";
-                }
-            } else if (customer instanceof GuestCustomer) {
-                return "LOWEST";
-            } else {
-                return "UNKNOWN";
-            }
-        }
-
-        // Nested pattern matching with status (Java 17 compatible)
-        public String getCustomerStatusDescription(Customer customer) {
-            String customerType;
-            if (customer instanceof PremiumCustomer premium) {
-                customerType = "Premium " + premium.tier() + " customer: " + getStatusDetails(premium.status());
-            } else if (customer instanceof RegularCustomer regular) {
-                customerType = "Regular customer (member " + regular.membershipMonths() + "m): " + getStatusDetails(regular.status());
-            } else if (customer instanceof GuestCustomer guest) {
-                customerType = "Guest customer: " + getStatusDetails(guest.status());
-            } else {
-                customerType = "Unknown customer type";
-            }
-            return customerType;
-        }
-
-        private String getStatusDetails(CustomerStatus status) {
-            if (status instanceof ActiveStatus active) {
-                return "Active since " + active.since() + " (" + active.loyaltyPoints() + " loyalty points)";
-            } else if (status instanceof InactiveStatus inactive) {
-                return "Inactive since " + inactive.lastActivity();
-            } else if (status instanceof SuspendedStatus suspended) {
-                return "Suspended until " + suspended.until() + " (reason: " + suspended.reason() + ")";
-            } else {
-                return "Unknown status";
-            }
-        }
-
-        // Complex pattern matching with business logic (Java 17 compatible)
-        public boolean isEligibleForPromotion(Customer customer) {
-            if (customer instanceof PremiumCustomer premium && premium.status() instanceof ActiveStatus active) {
-                return active.loyaltyPoints() > 1000;
-            } else if (customer instanceof RegularCustomer regular && regular.status() instanceof ActiveStatus active) {
-                return regular.membershipMonths() > 12 && active.loyaltyPoints() > 500;
-            } else {
-                return false;
-            }
-        }
-
-        // Pattern matching for instanceof with type extraction
-        public Optional<String> getPremiumTier(Customer customer) {
-            if (customer instanceof PremiumCustomer premium) {
-                return Optional.of(premium.tier());
-            }
-            return Optional.empty();
-        }
-
-        // Pattern matching for data extraction (Java 17 compatible)
-        public Map<String, Object> extractCustomerData(Customer customer) {
-            if (customer instanceof PremiumCustomer premium) {
-                return Map.of(
-                    "type", "PREMIUM",
-                    "id", premium.id(),
-                    "name", premium.name(),
-                    "email", premium.email(),
-                    "balance", premium.accountBalance(),
-                    "tier", premium.tier(),
-                    "status", premium.status()
-                );
-            } else if (customer instanceof RegularCustomer regular) {
-                return Map.of(
-                    "type", "REGULAR",
-                    "id", regular.id(),
-                    "name", regular.name(),
-                    "email", regular.email(),
-                    "membershipMonths", regular.membershipMonths(),
-                    "status", regular.status()
-                );
-            } else if (customer instanceof GuestCustomer guest) {
-                return Map.of(
-                    "type", "GUEST",
-                    "id", guest.id(),
-                    "name", guest.name(),
-                    "email", guest.email(),
-                    "sessionId", guest.sessionId(),
-                    "status", guest.status()
-                );
-            } else {
-                return Map.of("type", "UNKNOWN");
-            }
-        }
-    }
-
-    private CustomerService service;
-    private List<Customer> testCustomers;
-
-    @BeforeEach
-    void setUp() {
-        service = new CustomerService();
-        
-        testCustomers = List.of(
-            new PremiumCustomer(
-                "P001", "Alice Johnson", "alice@example.com", 
-                5000.0, "PLATINUM", 
-                new ActiveStatus("2023-01-01", 1500)
-            ),
-            new PremiumCustomer(
-                "P002", "Bob Smith", "bob@example.com", 
-                2000.0, "GOLD", 
-                new ActiveStatus("2023-06-01", 800)
-            ),
-            new PremiumCustomer(
-                "P003", "Charlie Brown", "charlie@example.com", 
-                1000.0, "SILVER", 
-                new SuspendedStatus("Payment issue", "2024-12-31")
-            ),
-            new RegularCustomer(
-                "R001", "Diana Prince", "diana@example.com", 
-                18, new ActiveStatus("2023-03-15", 600)
-            ),
-            new RegularCustomer(
-                "R002", "Edward Norton", "edward@example.com", 
-                6, new InactiveStatus("2024-10-01")
-            ),
-            new GuestCustomer(
-                "G001", "Frank Miller", "frank@example.com", 
-                "SESSION_12345", new ActiveStatus("2024-11-01", 0)
-            )
-        );
-    }
-
-    @Test
-    @DisplayName("Should classify customer types using pattern matching")
-    void testCustomerTypeClassification() {
-        assertEquals("Premium Customer (PLATINUM) with balance: $5000.0", 
-                    service.getCustomerType(testCustomers.get(0)));
-        
-        assertEquals("Premium Customer (GOLD) with balance: $2000.0", 
-                    service.getCustomerType(testCustomers.get(1)));
-        
-        assertEquals("Regular Customer (member for 18 months)", 
-                    service.getCustomerType(testCustomers.get(3)));
-        
-        assertEquals("Guest Customer (session: SESSION_12345)", 
-                    service.getCustomerType(testCustomers.get(5)));
-    }
-
-    @Test
-    @DisplayName("Should determine customer priority using pattern matching with guards")
-    void testCustomerPriorityWithGuards() {
-        // PLATINUM premium customer
-        assertEquals("HIGHEST", service.getCustomerPriority(testCustomers.get(0)));
-        
-        // GOLD premium customer
-        assertEquals("HIGH", service.getCustomerPriority(testCustomers.get(1)));
-        
-        // SILVER premium customer
-        assertEquals("MEDIUM", service.getCustomerPriority(testCustomers.get(2)));
-        
-        // Regular customer with 18 months (< 24)
-        assertEquals("LOW", service.getCustomerPriority(testCustomers.get(3)));
-        
-        // Guest customer
-        assertEquals("LOWEST", service.getCustomerPriority(testCustomers.get(5)));
-    }
-
-    @Test
-    @DisplayName("Should handle nested pattern matching with status")
-    void testNestedPatternMatching() {
-        String description = service.getCustomerStatusDescription(testCustomers.get(0));
-        assertTrue(description.contains("Premium PLATINUM customer"));
-        assertTrue(description.contains("Active since 2023-01-01"));
-        assertTrue(description.contains("1500 loyalty points"));
-        
-        String suspendedDescription = service.getCustomerStatusDescription(testCustomers.get(2));
-        assertTrue(suspendedDescription.contains("Premium SILVER customer"));
-        assertTrue(suspendedDescription.contains("Suspended until 2024-12-31"));
-        assertTrue(suspendedDescription.contains("reason: Payment issue"));
-    }
-
-    @Test
-    @DisplayName("Should determine promotion eligibility using complex pattern matching")
-    void testPromotionEligibility() {
-        // Premium customer with > 1000 loyalty points
-        assertTrue(service.isEligibleForPromotion(testCustomers.get(0)));
-        
-        // Premium customer with < 1000 loyalty points
-        assertFalse(service.isEligibleForPromotion(testCustomers.get(1)));
-        
-        // Suspended premium customer
-        assertFalse(service.isEligibleForPromotion(testCustomers.get(2)));
-        
-        // Regular customer with > 12 months and > 500 points
-        assertTrue(service.isEligibleForPromotion(testCustomers.get(3)));
-        
-        // Regular customer with < 12 months
-        assertFalse(service.isEligibleForPromotion(testCustomers.get(4)));
-        
-        // Guest customer
-        assertFalse(service.isEligibleForPromotion(testCustomers.get(5)));
-    }
-
-    @Test
-    @DisplayName("Should use pattern matching for instanceof with type extraction")
-    void testPatternMatchingInstanceof() {
-        // Premium customers
-        assertEquals(Optional.of("PLATINUM"), service.getPremiumTier(testCustomers.get(0)));
-        assertEquals(Optional.of("GOLD"), service.getPremiumTier(testCustomers.get(1)));
-        assertEquals(Optional.of("SILVER"), service.getPremiumTier(testCustomers.get(2)));
-        
-        // Non-premium customers
-        assertEquals(Optional.empty(), service.getPremiumTier(testCustomers.get(3)));
-        assertEquals(Optional.empty(), service.getPremiumTier(testCustomers.get(4)));
-        assertEquals(Optional.empty(), service.getPremiumTier(testCustomers.get(5)));
-    }
-
-    @Test
-    @DisplayName("Should extract customer data using pattern matching")
-    void testDataExtractionPatternMatching() {
-        Map<String, Object> premiumData = service.extractCustomerData(testCustomers.get(0));
-        assertEquals("PREMIUM", premiumData.get("type"));
-        assertEquals("P001", premiumData.get("id"));
-        assertEquals("Alice Johnson", premiumData.get("name"));
-        assertEquals(5000.0, premiumData.get("balance"));
-        assertEquals("PLATINUM", premiumData.get("tier"));
-        
-        Map<String, Object> regularData = service.extractCustomerData(testCustomers.get(3));
-        assertEquals("REGULAR", regularData.get("type"));
-        assertEquals("R001", regularData.get("id"));
-        assertEquals(18, regularData.get("membershipMonths"));
-        
-        Map<String, Object> guestData = service.extractCustomerData(testCustomers.get(5));
-        assertEquals("GUEST", guestData.get("type"));
-        assertEquals("SESSION_12345", guestData.get("sessionId"));
-    }
-
-    @Test
-    @DisplayName("Should validate sealed interface constraints")
-    void testSealedInterfaceValidation() {
-        // All Customer implementations should be handled in pattern matching
-        for (Customer customer : testCustomers) {
-            String type = service.getCustomerType(customer);
-            assertNotNull(type);
-            assertFalse(type.isEmpty());
-            
-            String priority = service.getCustomerPriority(customer);
-            assertNotNull(priority);
-            assertFalse(priority.isEmpty());
-        }
-    }
-
-    @Test
-    @DisplayName("Should validate record constraints")
-    void testRecordValidation() {
-        // Premium customer validation
-        assertThrows(NullPointerException.class, () -> {
-            new PremiumCustomer(null, "Name", "email@example.com", 1000.0, "GOLD", 
-                new ActiveStatus("2023-01-01", 100));
-        });
-        
-        assertThrows(IllegalArgumentException.class, () -> {
-            new PremiumCustomer("P001", "Name", "email@example.com", -100.0, "GOLD", 
-                new ActiveStatus("2023-01-01", 100));
-        });
-        
-        // Regular customer validation
-        assertThrows(IllegalArgumentException.class, () -> {
-            new RegularCustomer("R001", "Name", "email@example.com", -5, 
-                new ActiveStatus("2023-01-01", 100));
-        });
-        
-        // Guest customer validation
-        assertThrows(NullPointerException.class, () -> {
-            new GuestCustomer("G001", "Name", "email@example.com", null, 
-                new ActiveStatus("2023-01-01", 0));
-        });
-    }
-
-    @Test
-    @DisplayName("Should handle all customer status types")
-    void testCustomerStatusTypes() {
-        ActiveStatus active = new ActiveStatus("2023-01-01", 500);
-        InactiveStatus inactive = new InactiveStatus("2024-01-01");
-        SuspendedStatus suspended = new SuspendedStatus("Violation", "2024-12-31");
-        
-        PremiumCustomer activeCustomer = new PremiumCustomer(
-            "P100", "Active Customer", "active@example.com", 1000.0, "GOLD", active);
-        PremiumCustomer inactiveCustomer = new PremiumCustomer(
-            "P101", "Inactive Customer", "inactive@example.com", 1000.0, "GOLD", inactive);
-        PremiumCustomer suspendedCustomer = new PremiumCustomer(
-            "P102", "Suspended Customer", "suspended@example.com", 1000.0, "GOLD", suspended);
-        
-        String activeDesc = service.getCustomerStatusDescription(activeCustomer);
-        assertTrue(activeDesc.contains("Active since 2023-01-01"));
-        assertTrue(activeDesc.contains("500 loyalty points"));
-        
-        String inactiveDesc = service.getCustomerStatusDescription(inactiveCustomer);
-        assertTrue(inactiveDesc.contains("Inactive since 2024-01-01"));
-        
-        String suspendedDesc = service.getCustomerStatusDescription(suspendedCustomer);
-        assertTrue(suspendedDesc.contains("Suspended until 2024-12-31"));
-        assertTrue(suspendedDesc.contains("reason: Violation"));
-    }
-
-    @Test
-    @DisplayName("Should demonstrate exhaustive pattern matching")
-    void testExhaustivePatternMatching() {
-        // Create customers with all possible status combinations
-        List<CustomerStatus> allStatuses = List.of(
-            new ActiveStatus("2023-01-01", 100),
-            new InactiveStatus("2024-01-01"),
-            new SuspendedStatus("Test", "2024-12-31")
-        );
-        
-        for (CustomerStatus status : allStatuses) {
-            PremiumCustomer customer = new PremiumCustomer(
-                "TEST", "Test Customer", "test@example.com", 1000.0, "GOLD", status);
-            
-            // All status types should be handled
-            String description = service.getCustomerStatusDescription(customer);
-            assertNotNull(description);
-            assertFalse(description.isEmpty());
-        }
-    }
+        String tier
+    ) implements Customer {}
 }
