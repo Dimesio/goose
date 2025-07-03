@@ -1,0 +1,40 @@
+{
+  "name": "goose-tests",
+  "version": "1.0.31",
+  "description": "Test infrastructure for the Goose project",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest test/unit",
+    "test:specs": "jest test/specs"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.js",
+      "**/test/**/*.spec.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "lib/**/*.js",
+      "!**/node_modules/**",
+      "!**/coverage/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "Apache-2.0"
+}
