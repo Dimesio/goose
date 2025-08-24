@@ -1,0 +1,81 @@
+plugins {
+    id 'java'
+    id 'jacoco'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+compileJava {
+    options.release = 17
+}
+
+compileTestJava {
+    options.release = 17
+}
+
+test {
+    useJUnitPlatform()
+    
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    
+    reports {
+        html.required = true
+        junitXml.required = true
+    }
+    
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // JUnit 5 for testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    
+    // Mockito for mocking
+    testImplementation 'org.mockito:mockito-core:5.5.0'
+    
+    // AssertJ for fluent assertions
+    testImplementation 'org.assertj:assertj-core:3.24.2'
+}
+
+// Task to run tests with coverage
+task testWithCoverage {
+    dependsOn test, jacocoTestReport
+    description = 'Runs tests and generates coverage report'
+    group = 'verification'
+}
+
+// JaCoCo coverage verification
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
